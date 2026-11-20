@@ -1,0 +1,6 @@
+[
+  { "id": "C001", "nombre": "Alice", "saldo": 234.56, "activa": true },
+  { "id": "C002", "nombre": "Hamza", "saldo": 198.76, "activa": true },
+  { "id": "C003", "nombre": "Pedro", "saldo": 300.00, "activa": true },
+  { "id": "C004", "nombre": "Maria", "saldo": 50.00,  "activa": false }
+]

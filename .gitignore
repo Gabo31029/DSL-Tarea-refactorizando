@@ -1,0 +1,5 @@
+logs/*.json
+*.exe
+/web
+/cli
+data/*.tmp

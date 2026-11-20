@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cajero - prj_withdrawal</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 15px; color: #222; }
+  h1 { font-size: 24px; margin-bottom: 5px; }
+  h2 { font-size: 18px; }
+  .caja { border: 1px solid #ccc; border-radius: 6px; padding: 10px 15px; margin: 15px 0; }
+  select, input, button { font-size: 15px; padding: 5px 8px; }
+  button { cursor: pointer; border: 0; border-radius: 4px; color: white; }
+  #btnRetiro { background: #c0392b; }
+  #btnAbono { background: #27ae60; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { border-bottom: 1px solid #eee; padding: 5px; text-align: left; }
+  .EXITOSA { color: #27ae60; font-weight: bold; }
+  .RECHAZADA { color: #d68910; font-weight: bold; }
+  .ERROR { color: #c0392b; font-weight: bold; }
+  #msg { margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Cajero - Retiro y Abono</h1>
+<small>prj_withdrawal v2.0.0</small>
+
+<div class="caja">
+  <h2>Cuentas</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Titular</th><th>Saldo</th><th>Activa</th></tr></thead>
+    <tbody id="cuentas"></tbody>
+  </table>
+</div>
+
+<div class="caja">
+  <h2>Nueva operacion</h2>
+  Cuenta: <select id="cuenta"></select>
+  Monto: <input id="monto" type="number" step="0.01" min="0" value="100">
+  <button id="btnRetiro" onclick="enviar('RETIRO')">Retirar</button>
+  <button id="btnAbono" onclick="enviar('ABONO')">Abonar</button>
+  <div id="msg"></div>
+</div>
+
+<div class="caja">
+  <h2>Historial</h2>
+  <table>
+    <thead><tr><th>Fecha</th><th>Cuenta</th><th>Tipo</th><th>Monto</th><th>Estado</th><th>Saldo</th><th>Mensaje</th></tr></thead>
+    <tbody id="log"></tbody>
+  </table>
+</div>
+
+<script>
+function $(id) { return document.getElementById(id); }
+function f2(n) { return Number(n).toFixed(2); }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+async function cargar() {
+  try {
+    const cuentas = await (await fetch('/api/cuentas')).json();
+    const elegida = $('cuenta').value;
+    let filas = '', opciones = '';
+    for (const c of cuentas) {
+      filas += `<tr><td>${esc(c.id)}</td><td>${esc(c.nombre)}</td><td>${f2(c.saldo)}</td><td>${c.activa ? 'Si' : 'No'}</td></tr>`;
+      opciones += `<option value="${esc(c.id)}">${esc(c.id)} - ${esc(c.nombre)}</option>`;
+    }
+    $('cuentas').innerHTML = filas;
+    $('cuenta').innerHTML = opciones;
+    if (elegida) $('cuenta').value = elegida;
+
+    const historial = await (await fetch('/api/transacciones')).json();
+    filas = '';
+    for (const t of historial.reverse()) {
+      filas += `<tr><td>${esc(t.fecha.replace('T', ' ').slice(0, 19))}</td><td>${esc(t.cuenta_id)}</td>
+        <td>${esc(t.tipo)}</td><td>${f2(t.monto)}</td><td class="${esc(t.estado)}">${esc(t.estado)}</td>
+        <td>${f2(t.saldo_despues)}</td><td>${esc(t.mensaje)}</td></tr>`;
+    }
+    $('log').innerHTML = filas;
+  } catch (e) {
+    $('msg').className = 'ERROR';
+    $('msg').textContent = 'No se pudo conectar con el servidor.';
+  }
+}
+
+async function enviar(tipo) {
+  const monto = parseFloat($('monto').value);
+  if (isNaN(monto)) {
+    $('msg').className = 'ERROR';
+    $('msg').textContent = 'Ingrese un monto.';
+    return;
+  }
+  try {
+    const res = await fetch('/api/transaccion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cuenta_id: $('cuenta').value, tipo: tipo, monto: monto })
+    });
+    const tx = await res.json();
+    $('msg').className = tx.estado;
+    $('msg').textContent = `${tx.estado}: ${tx.mensaje} (saldo: ${f2(tx.saldo_despues)})`;
+  } catch (e) {
+    $('msg').className = 'ERROR';
+    $('msg').textContent = 'No se pudo conectar con el servidor.';
+    return;
+  }
+  cargar();
+}
+
+cargar();
+</script>
+</body>
+</html>
